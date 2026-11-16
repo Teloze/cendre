@@ -557,7 +557,7 @@ function M.tmux(bg)
   }, "\n")
 
   -- Status modules: each @cendre_status_<name> is a fully-composed format string.
-  -- Use #{E:@cendre_status_session} in status-left, #{E:@cendre_status_branch} in status-right.
+  -- Use #{E:@cendre_status_session} in status-left, #{E:@cendre_status_gitmux} in status-right.
   -- Override @cendre_*_text options before sourcing to swap commands.
   -- Module pill uses rounded caps (consistent on all window styles).
   -- edge: "both" (default) = rounded caps on both sides
@@ -583,15 +583,27 @@ function M.tmux(bg)
   local module_block = table.concat({
     "# --- Status modules ---",
     "# Compose: set -g status-left \"#{E:@cendre_status_session} \"",
-    "#          set -g status-right \" #{E:@cendre_status_branch}\"",
+    "#          set -g status-right \" #{E:@cendre_status_gitmux}\"",
     "",
     ('set -g @cendre_status_session "%s"'):format(pill("#{session_name}", "", ember, bg0, "right")),
     "",
     'set -ogq @cendre_branch_text "#(cd #{pane_current_path}; git rev-parse --abbrev-ref HEAD 2>/dev/null)"',
     ('set -g  @cendre_status_branch "%s"'):format(pill(BRN, "#{E:@cendre_branch_text}")),
     "",
+    'set -ogq @cendre_gitmux_text \'#(gitmux -cfg $HOME/.gitmux.conf "#{pane_current_path}")\'',
+    ('set -g  @cendre_status_gitmux "%s"'):format(pill("", "#{E:@cendre_gitmux_text}", nil, nil, "left")),
+    "",
     "set -ogq status-left  \"#{E:@cendre_status_session} \"",
-    "set -ogq status-right \" #{E:@cendre_status_branch}\"",
+    "set -ogq status-right \" #{E:@cendre_status_gitmux}\"",
+    "",
+    "# --- Gitmux palette (referenced as #{@cendre_gitmux_*} in .gitmux.conf styles) ---",
+    "# Undefine these vars to remove cendre's influence on gitmux colors.",
+    ('set -g @cendre_gitmux_fg     "%s"'):format(c.fg),
+    ('set -g @cendre_gitmux_dim    "%s"'):format(c.fg_dim),
+    ('set -g @cendre_gitmux_accent "%s"'):format(c.ember),
+    ('set -g @cendre_gitmux_ok     "%s"'):format(c.ok),
+    ('set -g @cendre_gitmux_warn   "%s"'):format(c.warn),
+    ('set -g @cendre_gitmux_error  "%s"'):format(c.error),
   }, "\n")
 
   return ([[
