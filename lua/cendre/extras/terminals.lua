@@ -614,6 +614,7 @@ function M.tmux(bg)
 # Override any @cendre_* option before sourcing; -ogq will not overwrite user values.
 
 set -g status-style "bg=%s fg=%s"
+set -gq prompt-cursor-colour "%s"
 set -g status-position bottom
 set -g status-justify left
 set -g status-left-length 200
@@ -636,6 +637,7 @@ set -g message-command-style "bg=%s fg=%s"
 set -g mode-style "bg=%s fg=%s"
 ]]):format(bg, GENERATED,
       c.bg2, c.fg,
+      c.ember,
       window_block,
       module_block,
       c.fg_dim, c.warn,
