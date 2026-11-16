@@ -490,25 +490,128 @@ end
 
 function M.tmux(bg)
   local c = palette.get(bg)
+
+  -- Nerd Font powerline glyphs (Nerd Fonts v3, private use area).
+  local R_L = "\xee\x82\xb6"  -- U+E0B6 rounded left cap (opens pill)
+  local R_R = "\xee\x82\xb4"  -- U+E0B4 rounded right cap (closes pill)
+  local S_L = "\xee\x82\xba"  -- U+E0BA thin-left angle (slanted entry)
+  local S_C = "\xee\x82\xbc"  -- U+E0BC thin-right angle (slanted pill cross)
+  local P_L = "\xee\x82\xb0"  -- U+E0B0 powerline right arrow
+  local BLK = "\xe2\x96\x88"  -- U+2588 solid block (slanted exit cap)
+  local BRN = "\xee\x82\xa0"  -- U+E0A0 nf-powerline-branch icon
+
+  local bg0, bg2, bg3, bg4           = c.bg0, c.bg2, c.bg3, c.bg4
+  local ember, fg, comment           = c.ember, c.fg, c.comment
+
+  -- Each window tab is a two-section pill:
+  --   [ entry_g | num_style #I mid_g | txt_style #W#{flags} exit_g ]
+  -- entry_g: bar→ember (glyph in ember fg, bar bg)
+  -- mid_g:   ember→text_bg (glyph in ember fg, text_bg bg)
+  -- exit_g:  text_bg→bar (glyph in text_bg fg, bar bg)
+  -- Colors are baked at generate time since the conf is regenerated with the plugin.
+  local num_style     = ("#[fg=%s,bg=%s]"):format(bg0, ember)
+  local txt_style_in  = ("#[fg=%s,bg=%s]"):format(comment, bg3)
+  local txt_style_cur = ("#[fg=%s,bg=%s,bold]"):format(fg, bg4)
+
+  local function wfmt(entry_g, mid_g, txt_s, exit_g)
+    return entry_g .. num_style .. "#{window_index} " ..
+           mid_g .. txt_s .. " #{window_name} " .. exit_g .. "#[none]"
+  end
+
+  local function mk(glyph, fgc, bgc) return ("#[fg=%s,bg=%s]%s"):format(fgc, bgc, glyph) end
+
+  -- rounded: R_L entry, P_L cross (flat arrow joins the two curved pills), R_R exit
+  local w_rounded  = wfmt(mk(R_L, ember, bg2), mk(" ", ember, bg3), txt_style_in,  mk(R_R, bg3, bg2))
+  local wc_rounded = wfmt(mk(R_L, ember, bg2), mk(" ", ember, bg4), txt_style_cur, mk(R_R, bg4, bg2))
+
+  -- slanted: S_L entry, S_C cross, BLK exit
+  local w_slanted  = wfmt(mk(S_L, ember, bg2), mk(S_C, ember, bg3), txt_style_in,  mk(BLK, bg3, bg2))
+  local wc_slanted = wfmt(mk(S_L, ember, bg2), mk(S_C, ember, bg4), txt_style_cur, mk(BLK, bg4, bg2))
+
+  -- powerline: all P_L arrows
+  local w_pline    = wfmt(mk(P_L, ember, bg2), mk(P_L, ember, bg3), txt_style_in,  mk(P_L, bg3, bg2))
+  local wc_pline   = wfmt(mk(P_L, ember, bg2), mk(P_L, ember, bg4), txt_style_cur, mk(P_L, bg4, bg2))
+
+  -- flat: no glyphs; number in ember, name in comment/fg; current gets bg4 highlight
+  local w_flat  = ("#[fg=%s,bg=%s] #{window_index} #[fg=%s,bg=%s] #{window_name} #[none]"):format(
+    ember, bg2, comment, bg2)
+  local wc_flat = ("#[fg=%s,bg=%s] #{window_index} #[fg=%s,bg=%s,bold] #{window_name} #[none]"):format(
+    ember, bg4, fg, bg4)
+
+  local window_block = table.concat({
+    "set -ogq @cendre_window_style \"rounded\"",
+    "",
+    '%if "#{==:#{@cendre_window_style},rounded}"',
+    ('set -g window-status-format         "%s"'):format(w_rounded),
+    ('set -g window-status-current-format "%s"'):format(wc_rounded),
+    '%elif "#{==:#{@cendre_window_style},slanted}"',
+    ('set -g window-status-format         "%s"'):format(w_slanted),
+    ('set -g window-status-current-format "%s"'):format(wc_slanted),
+    '%elif "#{==:#{@cendre_window_style},powerline}"',
+    ('set -g window-status-format         "%s"'):format(w_pline),
+    ('set -g window-status-current-format "%s"'):format(wc_pline),
+    '%else',
+    ('set -g window-status-format         "%s"'):format(w_flat),
+    ('set -g window-status-current-format "%s"'):format(wc_flat),
+    '%endif',
+  }, "\n")
+
+  -- Status modules: each @cendre_status_<name> is a fully-composed format string.
+  -- Use #{E:@cendre_status_session} in status-left, #{E:@cendre_status_branch} in status-right.
+  -- Override @cendre_*_text options before sourcing to swap commands.
+  -- Module pill uses rounded caps (consistent on all window styles).
+  -- edge: "both" (default) = rounded caps on both sides
+  --       "right"          = flat left, rounded right  (leftmost pill,  faces inward)
+  --       "left"           = rounded left, flat right  (rightmost pill, faces inward)
+  local function pill(icon, text_ref, pill_bg, pill_fg, edge)
+    pill_bg = pill_bg or bg3
+    pill_fg = pill_fg or comment
+    edge    = edge    or "both"
+    local bold     = (pill_bg == ember) and ",bold" or ""
+    local interior = ("#[fg=%s,bg=%s%s]"):format(pill_fg, pill_bg, bold)
+    -- full fence restores both fg+bg after external text (e.g. gitmux) resets with #[none]
+    local bg_fence = ("#[fg=%s,bg=%s%s]"):format(pill_fg, pill_bg, bold)
+    local entry = (edge == "left" or edge == "both")
+      and ("#[fg=%s,bg=%s]%s"):format(pill_bg, bg2, R_L) .. interior
+      or  interior
+    local exit_g = (edge == "right" or edge == "both")
+      and ("#[fg=%s,bg=%s]%s#[none]"):format(pill_bg, bg2, R_R)
+      or  "#[none]"
+    return (entry .. " " .. icon .. " " .. text_ref .. bg_fence .. " " .. exit_g)
+  end
+
+  local module_block = table.concat({
+    "# --- Status modules ---",
+    "# Compose: set -g status-left \"#{E:@cendre_status_session} \"",
+    "#          set -g status-right \" #{E:@cendre_status_branch}\"",
+    "",
+    ('set -g @cendre_status_session "%s"'):format(pill("#{session_name}", "", ember, bg0, "right")),
+    "",
+    'set -ogq @cendre_branch_text "#(cd #{pane_current_path}; git rev-parse --abbrev-ref HEAD 2>/dev/null)"',
+    ('set -g  @cendre_status_branch "%s"'):format(pill(BRN, "#{E:@cendre_branch_text}")),
+    "",
+    "set -ogq status-left  \"#{E:@cendre_status_session} \"",
+    "set -ogq status-right \" #{E:@cendre_status_branch}\"",
+  }, "\n")
+
   return ([[
 # cendre · %s · https://github.com/Aejkatappaja/cendre
 %s
 # source-file ~/.config/tmux/cendre.tmux.conf
-
-# The bar sits on bg2, one layer above the buffer, and marks state with fills
-# rather than with colour alone: the accent names the session, a bg4 fill marks the
-# current window, and everything inactive stays ink on the bar's own ground.
+# Then set status-left / status-right using the @cendre_status_* module vars.
+# Override any @cendre_* option before sourcing; -ogq will not overwrite user values.
 
 set -g status-style "bg=%s fg=%s"
 set -g status-position bottom
 set -g status-justify left
 set -g status-left-length 200
+set -g status-right-length 200
+set -g status-interval 10
 
-set -g status-left "#[fg=%s,bg=%s,bold] #{session_name} #[fg=%s,bg=%s,nobold] "
-set -g status-right "#[fg=%s]#(cd #{pane_current_path}; git rev-parse --abbrev-ref HEAD) "
+%s
 
-set -g window-status-format "#[fg=%s,bg=%s] #{window_index}:#{window_name}#{window_flags} "
-set -g window-status-current-format "#[fg=%s,bg=%s,bold] #{window_index}:#{window_name}#{window_flags} "
+%s
+
 set -g window-status-last-style "fg=%s"
 set -g window-status-activity-style "fg=%s"
 
@@ -520,18 +623,14 @@ set -g message-command-style "bg=%s fg=%s"
 
 set -g mode-style "bg=%s fg=%s"
 ]]):format(bg, GENERATED,
-    c.bg2, c.fg,
-    c.bg0, c.ember, c.fg, c.bg2,
-    c.comment,
-    c.comment, c.bg2,
-    c.fg, c.bg4,
-    c.fg_dim,
-    c.warn,
-    c.bg3,
-    c.ember,
-    c.bg2, c.fg,
-    c.bg2, c.fg,
-    c.vis, c.fg)
+      c.bg2, c.fg,
+      window_block,
+      module_block,
+      c.fg_dim, c.warn,
+      c.bg3, c.ember,
+      c.bg2, c.fg,
+      c.bg2, c.fg,
+      c.vis, c.fg)
 end
 
 -- macOS Terminal stores each colour as an NSKeyedArchiver blob, base64 encoded
