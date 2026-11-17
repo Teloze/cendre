@@ -1314,7 +1314,7 @@ function M.bat(bg)
     .. "\t\t\t\t<key>selection</key>\n\t\t\t\t<string>%s</string>\n"
     .. "\t\t\t\t<key>gutterForeground</key>\n\t\t\t\t<string>%s</string>\n"
     .. "\t\t\t\t<key>invisibles</key>\n\t\t\t\t<string>%s</string>\n"
-    .. "\t\t\t</dict>\n\t\t</dict>"):format(c.bg0, c.fg, c.ember, c.bg1, c.vis, c.gutter, c.bg3)
+    .. "\t\t\t</dict>\n\t\t</dict>"):format(c.bg0, c.fg, c.ember, c.vis, c.vis, c.gutter, c.bg3)
 
   local rules = {
     global,
