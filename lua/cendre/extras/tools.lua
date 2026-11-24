@@ -84,6 +84,153 @@ end
 
 --- @param bg string
 --- @return string
+function M.ls_colors(bg)
+  local c = palette.get(bg)
+  -- Semantic roles only, no per-extension rules, so a tool that reads LS_COLORS
+  -- (fd, ls, tree) and eza fall back to their own file-type colours. Directories
+  -- are frost because fd paints the directory part of every path with `di`, and
+  -- rg and eza's link paths use frost there. eza keeps ember directories through
+  -- EZA_COLORS, which takes precedence over this.
+  local keys = {
+    { "di", c.frost }, { "ln", c.frost, "3;" }, { "or", c.error, "3;" },
+    { "mi", c.error, "1;" }, { "ex", c.ok, "1;" }, { "pi", c.hint },
+    { "so", c.hint, "1;" }, { "do", c.hint, "1;" }, { "bd", c.brass, "1;4;" },
+    { "cd", c.brass, "1;" }, { "su", c.cinder, "1;4;" }, { "sg", c.cinder, "1;4;" },
+    { "st", c.frost, "1;" }, { "ow", c.frost, "4;" }, { "tw", c.frost, "1;4;" },
+  }
+  local parts = {}
+  for _, k in ipairs(keys) do
+    table.insert(parts, ("%s=%s38;2;%s"):format(k[1], k[3] or "", rgb(k[2])))
+  end
+  return ([[
+# cendre theme for LS_COLORS (fd, ls, tree, and anything else that honours it) · %s
+# %s
+%s
+#
+# Install: source this file from your shell rc.
+#   source /path/to/extras/ls-colors/cendre.sh
+#
+# Semantic roles only. For per-extension colours, use extras/vivid instead.
+
+export LS_COLORS="%s"
+]]):format(bg, LINK, GENERATED, table.concat(parts, ":"))
+end
+
+--- @param bg string
+--- @return string
+function M.vivid(bg)
+  local c = palette.get(bg)
+  local function hex(v) return v:gsub("^#", "") end
+  -- Tuned so fd reads like eza and ripgrep: fd paints the directory part of every
+  -- path with `di`, and both eza (link paths) and rg (paths) use frost there, so
+  -- directories are frost here. eza keeps its own ember directories through
+  -- EZA_COLORS. Executables are ok green, links frost, broken things error red.
+  -- File types stay uncoloured: eza reads LS_COLORS for names too, so colouring
+  -- them here would repaint eza as well. Only the semantic roles carry colour.
+  return ([[
+# cendre theme for vivid (https://github.com/sharkdp/vivid) · %s
+# %s
+%s
+#
+# Install, then export LS_COLORS (read by fd, ls, tree, and anything else
+# that honours it):
+#   mkdir -p ~/.config/vivid/themes
+#   cp /path/to/extras/vivid/cendre.yml ~/.config/vivid/themes/
+#   export LS_COLORS="$(vivid generate cendre)"
+
+colors:
+  ok: "%s"
+  error: "%s"
+  frost: "%s"
+  hint: "%s"
+  brass: "%s"
+  cinder: "%s"
+
+core:
+  normal_text: {}
+  regular_file: {}
+  reset_to_normal: {}
+  directory:
+    foreground: frost
+  sticky:
+    foreground: frost
+    font-style: bold
+  other_writable:
+    foreground: frost
+    font-style: underline
+  sticky_other_writable:
+    foreground: frost
+    font-style: [bold, underline]
+  executable_file:
+    foreground: ok
+    font-style: bold
+  setuid:
+    foreground: cinder
+    font-style: [bold, underline]
+  setgid:
+    foreground: cinder
+    font-style: [bold, underline]
+  symlink:
+    foreground: frost
+    font-style: italic
+  broken_symlink:
+    foreground: error
+    font-style: italic
+  missing_symlink_target:
+    foreground: error
+    font-style: bold
+  multi_hard_link: {}
+  fifo:
+    foreground: hint
+  socket:
+    foreground: hint
+    font-style: bold
+  door:
+    foreground: hint
+    font-style: bold
+  block_device:
+    foreground: brass
+    font-style: [bold, underline]
+  character_device:
+    foreground: brass
+    font-style: bold
+  file_with_capability: {}
+text:
+  special:
+    font-style: bold
+  todo:
+    font-style: bold
+  licenses: {}
+  configuration:
+    font-style: regular
+  other: {}
+markup:
+  font-style: regular
+programming:
+  source:
+    font-style: regular
+  tooling:
+    font-style: regular
+media:
+  font-style: regular
+office:
+  font-style: regular
+archives:
+  font-style: regular
+executable:
+  font-style: regular
+  windows:
+    foreground: ok
+    font-style: bold
+unimportant:
+  font-style: faint
+]]):format(bg, LINK, GENERATED,
+    hex(c.ok), hex(c.error), hex(c.frost), hex(c.hint),
+    hex(c.brass), hex(c.cinder))
+end
+
+--- @param bg string
+--- @return string
 function M.delta(bg)
   local c = palette.get(bg)
   return ([[

@@ -24,7 +24,7 @@ Neovim 0.9 or newer, with `termguicolors`.
 Diagnostics, git signs, diff and statusline draw from the semantic family. An
 error never wears the same red as a keyword.
 
-## 31 surfaces, one palette
+## 33 surfaces, one palette
 
 Neovim is where this starts, not where it stops. Ghostty, kitty, WezTerm, foot,
 Alacritty, Konsole, Windows Terminal, tmux, bat, delta, lazygit, Yazi, eza, fzf,
